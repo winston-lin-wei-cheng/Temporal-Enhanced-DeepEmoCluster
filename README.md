@@ -1,5 +1,8 @@
 # Temporal-Enhanced DeepEmoCluster
-The [temporal-enhanced DeepEmoCluster](https://ieeexplore.ieee.org/XXXXX) adds additional sentence-level temporal modeling to further improve the [DeepEmoCluster](https://github.com/winston-lin-wei-cheng/DeepEmoClusters) recognition performances. It uses the two proposed temporal modeling approaches:
+
+:exclamation::exclamation::exclamation:**semi-supervised model implementation is on the way**
+
+The [temporal-enhanced DeepEmoCluster](https://doi.org/10.1016/j.specom.2023.103027) adds additional sentence-level temporal modeling to further improve the [DeepEmoCluster](https://github.com/winston-lin-wei-cheng/DeepEmoClusters) recognition performances. It uses the two proposed temporal modeling approaches:
 1. Temporal Net- *Temp-GRU*, *Temp-CNN*, *Temp-Trans*
 2. Triplet loss- *Temp-Triplet*
 
@@ -44,7 +47,7 @@ python online_testing.py -ep 30 -batch 64 -emo Val -nc 10 -mt Temp-Triplet
 ```
 
 # Pre-trained models
-We provide the pretrained models based on **version 1.8** of the MSP-Podcast in the *'trained_models'* folder. The CCC performances of models based on the test set are shown in the following table. Note that the results are slightly different from the [paper](https://ieeexplore.ieee.org/XXXXX) since we performed statistical test in the paper (i.e., we averaged multiple trails).
+We provide the pretrained models based on **version 1.8** of the MSP-Podcast in the *'trained_models'* folder. The CCC performances of models based on the test set are shown in the following table. Note that the results are slightly different from the [paper](https://doi.org/10.1016/j.specom.2023.103027) since we performed statistical test in the paper (i.e., we averaged multiple trails).
 
 | Temporal Modeling Approach | Act(10-clusters) | Dom(10-clusters) | Val(10-clusters) |
 |:----------------:|:----------------:|:----------------:|:----------------:|
@@ -56,20 +59,25 @@ We provide the pretrained models based on **version 1.8** of the MSP-Podcast in 
 Users can get these results by running the **online_testing.py** with the corresponding args.
 
 
-# End-to-End Emotional Prediction Process
+# End-to-End Emotion Prediction Process
 We provide the end-to-end prediction process that alows users to directly make emotion predictions (i.e., arousal, domiance and valence) on your own dataset or any audio files (audio spec: WAV file, 16k sampling rate and mono channel) based on the provided pretrained models. Users just need to change the input folder path in **prediction_process.py** to run the predictions and the output results will be saved as a *'pred_result.csv'* file under the same directory. 
 
 
 # Reference
 If you use this code, please cite the following paper:
 
-Wei-Cheng Lin and Carlos Busso, "Improving Temporal Modeling of Deep Clustering Features for Speech Emotion Recognition"
+Wei-Cheng Lin and Carlos Busso, "Deep temporal clustering features for speech emotion recognition"
 
 ```
-@InProceedings{xXx,
-  title={XXX},
-  author={XXX},
-  booktitle={XXX},
-  year={2022},
+@article{Lin_2024,
+  author = {W.-C. Lin and C. Busso},
+  title = {Deep temporal clustering features for speech emotion recognition},
+  journal = {Speech Communication},
+  volume = {157},
+  number = {},
+  year = {2024},
+  pages = {103027},
+  month = {February},
+  doi={10.1016/j.specom.2023.103027},
 } 
 ```
