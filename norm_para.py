@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-@author: winston
+@author: Wei-Cheng (Winston) Lin
 """
 import os
 import pandas as pd
@@ -10,41 +10,39 @@ from scipy.io import loadmat, savemat
 from utils import CombineListToMatrix
 
 
-######## For Labeled MSP-Podcast Dataset (based on Train set only)
-if __name__=='__main__': 
-    # Get Label-Table & Data-Feature
-    label_table = pd.read_csv('/media/winston/UTD-MSP/Speech_Datasets/MSP-PODCAST-Publish-1.8/Labels/labels_concensus.csv')
-    data_root = '/media/winston/UTD-MSP/Speech_Datasets/MSP-PODCAST-Publish-1.8/Features/Mel_Spec128/feat_mat/'
+if __name__=='__main__':
     
-    # Get file path of Dataset
-    whole_fnames = (label_table['FileName'].values).astype('str')
-    split_set = (label_table['Split_Set'].values).astype('str')
-    emo_act = label_table['EmoAct'].values
-    emo_dom = label_table['EmoDom'].values
-    emo_val = label_table['EmoVal'].values
+    # Get label table & data (features)
+    label_table = pd.read_csv('/YOUR/ROOT/PATH/TO/MSP-PODCAST-Publish-1.8/Labels/labels_concensus.csv')
+    data_root = '/YOUR/ROOT/PATH/TO/MSP-PODCAST-Publish-1.8/Features/Mel_Spec128/feat_mat/'
     
-    # Acoustic-Feature/Label Normalization Parameters based on Training Set
+    # Get needed file info
+    whole_fnames = label_table['FileName'].values.astype('str').tolist()
+    split_set = label_table['Split_Set'].values.astype('str').tolist()
+    emo_act = label_table['EmoAct'].values.tolist()
+    emo_dom = label_table['EmoDom'].values.tolist()
+    emo_val = label_table['EmoVal'].values.tolist()
+    
+    # Prepare feature & label norm parameters based on the 'Train' set
     Train_Data = []
-    Train_Label_act = []
-    Train_Label_dom = []
-    Train_Label_val = []
-    for i in range(len(whole_fnames)):
-        if split_set[i]=='Train':
-            data = loadmat(data_root + whole_fnames[i].replace('.wav','.mat'))['Audio_data']
+    Train_Label_act, Train_Label_dom, Train_Label_val = [], [], []
+    for idx in range(len(whole_fnames)):
+        if split_set[idx]=='Train':
+            data = loadmat(data_root+whole_fnames[idx].replace('.wav','.mat'))['Audio_data']
             Train_Data.append(data)
-            Train_Label_act.append(emo_act[i])
-            Train_Label_dom.append(emo_dom[i])
-            Train_Label_val.append(emo_val[i])
+            Train_Label_act.append(emo_act[idx])
+            Train_Label_dom.append(emo_dom[idx])
+            Train_Label_val.append(emo_val[idx])
     Train_Data = CombineListToMatrix(Train_Data)
     Train_Label_act = np.array(Train_Label_act)
     Train_Label_dom = np.array(Train_Label_dom)
     Train_Label_val = np.array(Train_Label_val)
     
-    # creating output folder
+    # Creating output folder
     if not os.path.isdir('./NormTerm/'):
         os.makedirs('./NormTerm/')     
     
-    # Feature Normalization Parameters
+    # Save feature & label normalization parameters
     Feat_mean = np.mean(Train_Data,axis=0)
     Feat_std = np.std(Train_Data,axis=0)       
     savemat('./NormTerm/feat_norm_means.mat', {'normal_para':Feat_mean})

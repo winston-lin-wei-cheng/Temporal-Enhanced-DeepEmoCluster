@@ -1,15 +1,17 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-@author: winston
+@author: Wei-Cheng (Winston) Lin
 """
 import torch
 import torch.nn as nn
 import numpy as np
 import math
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 __all__ = [ 'VGG', 'vgg16']
+
 
 def generate_contrast_idx(win_size=2):
     """
@@ -60,9 +62,9 @@ class VGG(nn.Module):
         x = self.cnn_out(x)
         # consider temporal info between chunks (using Triplet approach)        
         x = x.view(-1, 11, x.size(1))
-        anchor = torch.empty(size=(0, x.size(2)), requires_grad=True).cuda()
-        positive = torch.empty(size=(0, x.size(2)), requires_grad=True).cuda()
-        negative = torch.empty(size=(0, x.size(2)), requires_grad=True).cuda()
+        anchor = torch.empty(size=(0, x.size(2)), requires_grad=True).to(device)
+        positive = torch.empty(size=(0, x.size(2)), requires_grad=True).to(device)
+        negative = torch.empty(size=(0, x.size(2)), requires_grad=True).to(device)
         for re in range(10): # each sentence random samples 10 Triplet pairs
             a_idx, p_idx, n_idx = generate_contrast_idx(win_size=2)
             anchor = torch.cat((anchor, x[:, a_idx, :]),dim=0)

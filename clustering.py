@@ -1,46 +1,47 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-@author: winston
+@author: Wei-Cheng (Winston) Lin
 """
 from scipy.io import loadmat
 import numpy as np
-import torch.utils.data as data
+from torch.utils.data import Dataset
 from utils import DynamicChunkSplitData
 import faiss
 import time
+NUM_CHUNKS_PER_SENT = 11
 
 
 def pil_loader(path, feat_norm_mean, feat_norm_std):
     """Loads an Audio-Spec image.
     Args:
-        path (str): path to image file
-        feat_norm_mean (arry): z-norm mean parameters
-        feat_norm_std (arry): z-norm std parameters
+        path$ (str): path to image file
+        feat_norm_mean$ (np.array): z-norm mean parameters
+        feat_norm_std$ (np.array): z-norm std parameters
     Returns:
         z-normalized spec-feature img
-    """    
+    """
     img = loadmat(path.replace('.wav','.mat'))['Audio_data']
-    # Z-normalization 
+    # Z-normalization
     img = (img-feat_norm_mean)/feat_norm_std
     # Bounded NormFeat Range -3~3 and assign NaN to 0
     img[np.isnan(img)]=0
     img[img>3]=3
-    img[img<-3]=-3     
+    img[img<-3]=-3
     return img
 
-class ReassignedDataset(data.Dataset):
+class ReassignedDataset(Dataset):
     """A dataset where the new labels are given in argument.
     Args:
-        image_indexes (list): list of spec-img indexes
-        pseudolabels (list): list of labels for each data
-        dataset (list): list of paths/labels (tuples) to audio files
+        image_indexes$ (list): list of spec-img indexes
+        pseudolabels$ (list): list of labels for each data
+        dataset$ (list): list of paths/labels (tuples) to audio files
     """
 
     def __init__(self, image_indexes, pseudolabels, dataset):
         # norm-parameters
         self.Feat_mean = loadmat('./NormTerm/feat_norm_means.mat')['normal_para']
-        self.Feat_std = loadmat('./NormTerm/feat_norm_stds.mat')['normal_para']         
+        self.Feat_std = loadmat('./NormTerm/feat_norm_stds.mat')['normal_para']
         self.imgs = self.make_dataset(image_indexes, pseudolabels, dataset)
 
     def make_dataset(self, image_indexes, pseudolabels, dataset):
@@ -59,11 +60,10 @@ class ReassignedDataset(data.Dataset):
         Returns:
             tuple: (image, pseudolabel, emo_label) where pseudolabel is the cluster of index datapoint
         """
-        # each utterance split into 11 chunks
-        C = 11  # number of chunks splitted in a sentence
+        C = NUM_CHUNKS_PER_SENT  # number of chunks splitted in a sentence
         path, emo_label, pseudolabel, ori_dataset_idx = self.imgs[index]
         img = pil_loader(path, self.Feat_mean, self.Feat_std)
-        # match back to original data chunk 
+        # mapping back to the original data chunks
         img = DynamicChunkSplitData([img], m=62, C=C, n=1)[(ori_dataset_idx % C)]
         img = img.reshape((1, img.shape[0], img.shape[1]))
         return img, pseudolabel, emo_label
@@ -71,11 +71,52 @@ class ReassignedDataset(data.Dataset):
     def __len__(self):
         return len(self.imgs)
 
+class ReassignedDataset_unlabel(Dataset):
+    """A dataset where the new labels are given in argument.
+    Args:
+        image_indexes$ (list): list of spec-img indexes
+        pseudolabels$ (list): list of labels for each data
+        dataset$ (list): list of paths/labels (tuples) to audio files
+    """
+
+    def __init__(self, image_indexes, pseudolabels, dataset):
+        # norm-parameters
+        self.Feat_mean = loadmat('./NormTerm/feat_norm_means.mat')['normal_para']
+        self.Feat_std = loadmat('./NormTerm/feat_norm_stds.mat')['normal_para']
+        self.imgs = self.make_dataset(image_indexes, pseudolabels, dataset)
+
+    def make_dataset(self, image_indexes, pseudolabels, dataset):
+        label_to_idx = {label: idx for idx, label in enumerate(set(pseudolabels))}
+        images = []
+        for j, idx in enumerate(image_indexes):
+            path = dataset[idx]
+            pseudolabel = label_to_idx[pseudolabels[j]]
+            images.append((path, pseudolabel, idx))
+        return images
+
+    def __getitem__(self, index):
+        """
+        Args:
+            index (int): index of data
+        Returns:
+            tuple: (image, pseudolabel) where pseudolabel is the cluster of index datapoint
+        """
+        C = NUM_CHUNKS_PER_SENT  # number of chunks splitted in a sentence
+        path, pseudolabel, ori_dataset_idx = self.imgs[index]
+        img = pil_loader(path, self.Feat_mean, self.Feat_std)
+        # mapping back to the original data chunks
+        img = DynamicChunkSplitData([img], m=62, C=C, n=1)[(ori_dataset_idx % C)]
+        img = img.reshape((1, img.shape[0], img.shape[1]))
+        return img, pseudolabel
+    
+    def __len__(self):
+        return len(self.imgs)
+
 def preprocess_features(npdata, pca=64):
     """Preprocess an array of features.
     Args:
-        npdata (np.array N * ndim): features to preprocess
-        pca (int): dim of output
+        npdata$ (np.array N * ndim): features to preprocess
+        pca$ (int): dim of output
     Returns:
         np.array of dim N * pca: data PCA-reduced, whitened and L2-normalized
     """
@@ -93,15 +134,14 @@ def preprocess_features(npdata, pca=64):
     npdata = npdata / row_sums[:, np.newaxis]
     return npdata
 
-def cluster_assign(images_lists, dataset):
+def cluster_assign(images_lists, dataset, dataset_type):
     """Creates a dataset from clustering, with clusters as labels.
     Args:
-        images_lists (list of list): for each cluster, the list of image indexes
-                                    belonging to this cluster
-        dataset (list): initial dataset
+        images_lists$ (list of list): for each cluster, the list of image indexes belonging to this cluster
+        dataset$ (list): initial dataset
+        dataset_type$ (str): 'supervised' or 'unsupervised'
     Returns:
-        ReassignedDataset(torch.utils.data.Dataset): a dataset with clusters as
-                                                     labels
+        ReassignedDataset(torch.utils.data.Dataset): a dataset with clusters as labels
     """
     assert images_lists is not None
     pseudolabels = []
@@ -109,7 +149,10 @@ def cluster_assign(images_lists, dataset):
     for cluster, images in enumerate(images_lists):
         image_indexes.extend(images)
         pseudolabels.extend([cluster] * len(images))
-    return ReassignedDataset(image_indexes, pseudolabels, dataset)
+    if dataset_type == 'supervised':
+        return ReassignedDataset(image_indexes, pseudolabels, dataset)
+    elif dataset_type == 'unsupervised':
+        return ReassignedDataset_unlabel(image_indexes, pseudolabels, dataset)
 
 def run_kmeans(x, nmb_clusters, verbose=False):
     """Runs kmeans on 1 GPU.

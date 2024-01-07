@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-@author: winston
+@author: Wei-Cheng (Winston) Lin
 """
 import torch.nn as nn
 import math

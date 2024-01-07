@@ -1,7 +1,4 @@
 # Temporal-Enhanced DeepEmoCluster
-
-:exclamation::exclamation::exclamation:**semi-supervised model implementation is on the way**
-
 The [temporal-enhanced DeepEmoCluster](https://doi.org/10.1016/j.specom.2023.103027) adds additional sentence-level temporal modeling to further improve the [DeepEmoCluster](https://github.com/winston-lin-wei-cheng/DeepEmoClusters) recognition performances. It uses the two proposed temporal modeling approaches:
 1. Temporal Net- *Temp-GRU*, *Temp-CNN*, *Temp-Trans*
 2. Triplet loss- *Temp-Triplet*
@@ -9,7 +6,8 @@ The [temporal-enhanced DeepEmoCluster](https://doi.org/10.1016/j.specom.2023.103
 
 NOTE: The experiments and the provided pretrained models were based on the MSP-Podcast v1.8 corpus in the paper.
 
-![The Temporal-Enhanced DeepEmoCluster Framework](/images/XXX.png)
+![Temp-Net DeepEmoCluster Framework](/images/framework1.png)
+![Temp-Triplet DeepEmoCluster Framework](/images/framework2.png)
 
 
 # Suggested Environment and Requirements
@@ -35,26 +33,25 @@ Using the **feat_extract.py** to extract 128-mel spectrogram features for every 
    * -emo: emotional attributes (Act, Dom or Val)
    * -nc: number of clusters in the latent space for the cluster classifier
    * -mt: temporal modeling type (Temp-GRU, Temp-CNN, Temp-Trans or Temp-Triplet)
+   * -unlabel: the desired size of unlabeled dataset to perform semi-supervised training (if no available unlabeled data, assign it to 0 and it will only perform fully supervised learning)
    * run in the terminal
    * the trained models will be saved under the generated *'trained_models'* folder
 ```
-python main.py -ep 30 -batch 64 -emo Val -nc 10 -mt Temp-Triplet
+python main.py -ep 30 -batch 64 -emo Val -nc 10 -mt Temp-Triplet -unlabel 15000
 ```
 3. Evaluation for the trained models using the **online_testing.py**. The results are based on the MSP-Podcast pre-defined test set,
    * run in the terminal
 ```
-python online_testing.py -ep 30 -batch 64 -emo Val -nc 10 -mt Temp-Triplet
+python online_testing.py -ep 30 -batch 64 -emo Val -nc 10 -mt Temp-Triplet -unlabel 15000
 ```
 
-# Pre-trained models
-We provide the pretrained models based on **version 1.8** of the MSP-Podcast in the *'trained_models'* folder. The CCC performances of models based on the test set are shown in the following table. Note that the results are slightly different from the [paper](https://doi.org/10.1016/j.specom.2023.103027) since we performed statistical test in the paper (i.e., we averaged multiple trails).
 
-| Temporal Modeling Approach | Act(10-clusters) | Dom(10-clusters) | Val(10-clusters) |
+# Pre-trained models
+We provide some pretrained models based on **version 1.8** of the MSP-Podcast in the *'trained_models'* folder. The CCC performances of models based on the test set are shown in the following table. Note that the results are slightly different from the [paper](https://doi.org/10.1016/j.specom.2023.103027) since we performed statistical test in the paper (i.e., we averaged multiple trails).
+
+| Temporal Modeling Approach | Act(30-clusters) | Dom(30-clusters) | Val(10-clusters) |
 |:----------------:|:----------------:|:----------------:|:----------------:|
-| Temp-GRU | 0.5730 | 0.4663 | 0.1590 |
-| Temp-CNN | 0.5630 | 0.4728 | 0.1471 |
-| Temp-Trans | 0.5672 | 0.4632 | 0.1712 |
-| Temp-Triplet | 0.5664 | 0.4774 | 0.1648 |
+| Temp-Trans (SSL) | 0.5741 | 0.4839 | 0.1801 |
 
 Users can get these results by running the **online_testing.py** with the corresponding args.
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-@author: winston
+@author: Wei-Cheng (Winston) Lin
 """
 import pandas as pd
 import numpy as np
@@ -10,7 +10,29 @@ import pickle
 import torch
 from torch.utils.data.sampler import Sampler
 from models import vgg16_GRU, vgg16_CNN, vgg16_Trans, vgg16_Triplet
+seed=99
 
+
+def getPaths_unlabel(path_unlabel, sample_num=None, shuffle=True):
+    for dirPath, dirNames, fileNames in os.walk(path_unlabel):
+        fileNames = sorted(fileNames)
+        indices = list(range(len(fileNames)))
+        if shuffle:
+            np.random.seed(seed)
+            np.random.shuffle(indices)
+        if sample_num:
+            indices = indices[:sample_num]
+        indices = np.array(indices)
+        fileNames = np.array(fileNames)[indices].astype('str').tolist()
+        whole_fnames = []
+        for idx in range(len(fileNames)):
+            # checking the file format
+            if '.wav' in fileNames[idx] or '.mat' in fileNames[idx]:
+                whole_fnames.append(fileNames[idx].replace('.mat','.wav'))
+            else:
+                pass
+        whole_fnames = np.array(whole_fnames).astype('str')
+        return whole_fnames
 
 def getPaths_attri(path_label, split_set, emo_attr):
     """
@@ -21,23 +43,19 @@ def getPaths_attri(path_label, split_set, emo_attr):
         emo_attr$ (str): 'Act', 'Dom' or 'Val'
     """
     label_table = pd.read_csv(path_label)
-    whole_fnames = (label_table['FileName'].values).astype('str')
-    split_sets = (label_table['Split_Set'].values).astype('str')
-    emo_act = label_table['EmoAct'].values
-    emo_dom = label_table['EmoDom'].values
-    emo_val = label_table['EmoVal'].values
+    whole_fnames = label_table['FileName'].values.astype('str').tolist()
+    split_sets = label_table['Split_Set'].values.astype('str').tolist()
+    emo_act = label_table['EmoAct'].values.tolist()
+    emo_dom = label_table['EmoDom'].values.tolist()
+    emo_val = label_table['EmoVal'].values.tolist()
     _paths = []
-    _label_act = []
-    _label_dom = []
-    _label_val = []
-    for i in range(len(whole_fnames)):
-        # Constrain with Split Sets      
-        if split_sets[i]==split_set:
-            # Constrain with Emotional Labels
-            _paths.append(whole_fnames[i])
-            _label_act.append(emo_act[i])
-            _label_dom.append(emo_dom[i])
-            _label_val.append(emo_val[i])
+    _label_act, _label_dom, _label_val = [], [], []
+    for idx in range(len(whole_fnames)):
+        if split_sets[idx]==split_set:
+            _paths.append(whole_fnames[idx])
+            _label_act.append(emo_act[idx])
+            _label_dom.append(emo_dom[idx])
+            _label_val.append(emo_val[idx])
         else:
             pass
     if emo_attr == 'Act':
@@ -50,16 +68,16 @@ def getPaths_attri(path_label, split_set, emo_attr):
 def CombineListToMatrix(Data):
     length_all = []
     for i in range(len(Data)):
-        length_all.append(len(Data[i])) 
+        length_all.append(len(Data[i]))
     feat_num = len(Data[0].T)
     Data_All = np.zeros((sum(length_all),feat_num))
     idx = 0
     Idx = []
     for i in range(len(length_all)):
         idx = idx+length_all[i]
-        Idx.append(idx)        
+        Idx.append(idx)
     for i in range(len(Idx)):
-        if i==0:    
+        if i==0:
             start = 0
             end = Idx[i]
             Data_All[start:end]=Data[i]
@@ -67,7 +85,7 @@ def CombineListToMatrix(Data):
             start = Idx[i-1]
             end = Idx[i]
             Data_All[start:end]=Data[i]
-    return Data_All  
+    return Data_All
 
 # split original batch data into batch small-chunks data with
 # proposed dynamic window step size which depends on the sentence duration 
@@ -86,8 +104,8 @@ def DynamicChunkSplitData(Online_data, m, C, n):
     num_shifts = n*C-1  # Tmax = 11sec (for the MSP-Podcast corpus), 
                         # chunk needs to shift 10 times to obtain total C=11 chunks for each sentence
     Split_Data = []
-    for i in range(len(Online_data)):
-        data = Online_data[i]
+    for idx in range(len(Online_data)):
+        data = Online_data[idx]
         # window-shifting size varied by differenct length of input utterance => dynamic step size
         step_size = int(int(len(data)-m)/num_shifts)      
         # Calculate index of chunks
@@ -120,9 +138,9 @@ def DynamicChunkSplitEmoData(Batch_data, Batch_label, m, C, n):
                         # chunk needs to shift 10 times to obtain total C=11 chunks for each sentence
     Split_Data = []
     Split_Label = np.array([])
-    for i in range(len(Batch_data)):
-        data = Batch_data[i]
-        label = Batch_label[i]
+    for idx in range(len(Batch_data)):
+        data = Batch_data[idx]
+        label = Batch_label[idx]
         # window-shifting size varied by differenct length of input utterance => dynamic step size
         step_size = int(int(len(data)-m)/num_shifts)      
         # Calculate index of chunks
@@ -166,7 +184,7 @@ class Logger(object):
 
 class SentUnifSampler(Sampler):
     """ Sentence-level Uniform Sampling for the uniform clustering pseudolabels, which also preserves 
-        the temporal orders of data chunks in the sentence for additional temporal modeling
+        the temporal orders of data chunks in the sentence for additional temporal modeling.
         Args:
             N (int): size of returned iterator.
             images_lists: dict of key (target), value (list of data with this target)
@@ -217,8 +235,8 @@ class SentUnifSampler(Sampler):
         weights = []
         for i in range(len(self.images_lists)):
             weights.append(len(self.images_lists[i]))
-        weights = [1/w for w in weights]              # Invert all weights
-        weights = [w/sum(weights) for w in weights]   # Normalize weights (in prob. form)
+        weights = [1/w for w in weights]              # invert all weights
+        weights = [w/sum(weights) for w in weights]   # normalize weights in prob. form
         
         # sentence-level random selection based on chunks-level cluster prob (uniform cluster dist.)
         rdn_select_prob = []
@@ -227,8 +245,8 @@ class SentUnifSampler(Sampler):
             for j in range(len(Sent_Idx[i][:,0])):
                 sent_w += weights[Sent_Idx[i][j,0]]
             rdn_select_prob.append(sent_w)
-        rdn_select_prob = np.array(rdn_select_prob)/sum(rdn_select_prob)    
-        rdn_select_idx = np.random.choice(np.arange(len(rdn_select_prob)), size=len(rdn_select_prob) , p=rdn_select_prob) # Sample
+        rdn_select_prob = np.array(rdn_select_prob)/sum(rdn_select_prob)
+        rdn_select_idx = np.random.choice(np.arange(len(rdn_select_prob)), size=len(rdn_select_prob) , p=rdn_select_prob)
         np.random.shuffle(rdn_select_idx)
         
         # aggregate final sampler index & output
@@ -240,7 +258,7 @@ class SentUnifSampler(Sampler):
         res = list(res.astype('int'))
         if len(res) >= self.N:
             return res[:self.N]
-        res += res[: (self.N - len(res))]           
+        res += res[: (self.N - len(res))]     
         return res
 
     def __iter__(self):
